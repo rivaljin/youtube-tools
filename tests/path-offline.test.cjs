@@ -1,0 +1,9 @@
+// Synthetic migration and cache-isolation regression test; no personal drafts.
+const {chromium}=require('playwright');const assert=require('node:assert/strict');
+(async()=>{const b=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});try{
+ const c=await b.newContext();const p=await c.newPage();p.on('dialog',d=>d.accept());const base=process.env.CONTI_BASE_URL||'http://127.0.0.1:8767/youtube-tools/';
+ await p.goto(base+'cook-conti.html');await p.waitForFunction(()=>navigator.serviceWorker.controller);await p.evaluate(async()=>{const cache=await caches.open('cook-conti-offline-preserve');await cache.put(new URL('/synthetic-old-cache',location.origin),new Response('preserve'));document.getElementById('dishName').value='이전 기기 저장 테스트';document.getElementById('cookSteps').value='가상 조리 순서';document.getElementById('seg1_screen').value='가상 첫 장면';saveAll();localStorage.setItem('cookContiShootV3',JSON.stringify({checks:{'scene:seg1':true},order:['seg1']}));});
+ await p.reload();await p.waitForFunction(()=>navigator.serviceWorker.controller);await p.locator('#shoot-mode').click();assert.equal(await p.locator('#shooting input[type=checkbox]').first().isChecked(),true);assert.ok((await p.evaluate(()=>caches.keys())).includes('cook-conti-offline-preserve'));
+ await c.setOffline(true);await p.goto(base);await p.waitForURL('**/cook-conti.html');assert.equal(await p.locator('#dishName').inputValue(),'이전 기기 저장 테스트');await p.locator('#shoot-mode').click();assert.equal(await p.locator('#shooting input[type=checkbox]').first().isChecked(),true);
+ console.log('PASS: new repository root offline redirect, same-origin existing draft/checks, unrelated legacy cache retained');await c.close();
+ }finally{await b.close()}})().catch(e=>{console.error(e);process.exitCode=1});
