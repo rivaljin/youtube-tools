@@ -1,4 +1,4 @@
-const CACHE='youtube-tools-conti-v1';
+const CACHE='youtube-tools-conti-v2';
 const FILES=['./','./index.html','./cook-conti.html','./assets/conti.js','./assets/conti.css'];
 const URLS=new Set(FILES.map(p=>new URL(p,self.location).href));
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));
