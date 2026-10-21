@@ -1,4 +1,4 @@
-const CACHE='youtube-tools-conti-v3-sketch';
+const CACHE='youtube-tools-conti-v4-sketch-fallback';
 const FILES=['./','./index.html','./cook-conti.html','./assets/sketch.js','./assets/conti.js','./assets/conti.css'];
 const URLS=new Set(FILES.map(p=>new URL(p,self.location).href));
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES.map(file=>new Request(file,{cache:'reload'}))))));

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cook with Nampy — 콘티 작성 도우미</title>
-<link rel="stylesheet" href="./assets/conti.css?v=3.1">
+<link rel="stylesheet" href="./assets/conti.css?v=3.1.1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'맑은 고딕','Malgun Gothic',sans-serif;background:#f5f5f5;color:#333;line-height:1.6}
@@ -38,7 +38,7 @@ textarea.tall{min-height:100px}
 </head>
 <body>
 <div class="container">
-<h1>🍳 Cook with Nampy — 콘티 작성 도우미 <span class="status-tag">v3.1</span></h1>
+<h1>🍳 Cook with Nampy — 콘티 작성 도우미 <span class="status-tag">v3.1.1</span></h1>
 <p class="subtitle">GPT와 만든 콘티를 가져와 촬영 순서대로 확인하세요. 입력과 촬영 체크는 이 기기에 저장됩니다.</p>
 <div class="autosave" id="autosaveMsg"></div>
 
@@ -152,7 +152,7 @@ const SEGMENTS=[
  ['5-8. 시식·마무리','seg8'],
 ];
 const FIELDS=['time','screen','script','subtitle','angle','subject','motion','notes'];
-const SHOT_OPTIONS={angle:{'':'구도 미지정',top:'탑뷰 · 위에서',oblique:'45도 · 비스듬히',front:'정면',close:'클로즈업'},subject:{'':'피사체 미지정',board:'도마',bowl:'그릇',pan:'팬',plate:'완성 접시',hands:'손동작'},motion:{'':'움직임 없음',none:'움직임 없음',left:'왼쪽으로',right:'오른쪽으로',down:'아래로',in:'가운데로'}};
+const SHOT_OPTIONS={angle:{'':'구도 미지정',top:'탑뷰 · 위에서',oblique:'45도 · 비스듬히',front:'정면',close:'클로즈업'},subject:{'':'피사체 미지정',board:'도마',bowl:'그릇',pan:'팬',plate:'완성 접시',hands:'손동작',roll:'롤 · 김밥',section:'단면',mold:'성형틀',sheet:'감싸기'},motion:{'':'움직임 없음',none:'움직임 없음',left:'왼쪽으로',right:'오른쪽으로',down:'아래로',up:'위로',in:'가운데로'}};
 const FIELD_LABELS={time:'시간',screen:'화면',script:'멘트',subtitle:'자막',angle:'구도',subject:'피사체',motion:'동작',notes:'주의 / 팁'};
 
 // 세그먼트 입력란 생성
@@ -292,7 +292,7 @@ function generate(){
   SEGMENTS.forEach(([title,prefix],idx)=>{
     const s=segVal(prefix);
     const isOptional = prefix==='seg6';
-    const hasAny = s.time||s.screen||s.script||s.subtitle;
+    const hasAny = FIELDS.some(field=>s[field]);
     if(!hasAny && isOptional) return; // 응용형만 생략
     L.push(`### ${title}`);
     if(!hasAny){
@@ -353,7 +353,7 @@ function downloadMd(){
   URL.revokeObjectURL(a.href);
 }
 </script>
-<script src="./assets/sketch.js?v=3.1"></script>
-<script src="./assets/conti.js?v=3.1"></script>
+<script src="./assets/sketch.js?v=3.1.1"></script>
+<script src="./assets/conti.js?v=3.1.1"></script>
 </body>
 </html>

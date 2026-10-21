@@ -1,4 +1,4 @@
-# 유튜브 콘티 v3.1 · 촬영용 스토리보드
+# 유튜브 콘티 v3.1.1 · 촬영용 스토리보드
 
 https://rivaljin.github.io/youtube-tools/cook-conti.html
 
@@ -6,7 +6,7 @@ https://rivaljin.github.io/youtube-tools/cook-conti.html
 이전/다음 또는 장면 선택으로 이동하고 촬영 완료를 체크합니다. 순서 변경은
 각 장면의 ‘촬영 순서 조정’에, 준비 목록·조리 순서는 접힌 참고 영역에 있습니다.
 기존 입력을 줄이거나 삭제하지 않습니다. 구도 정보가 없는 과거 콘티는 기존
-촬영 메모를 표시하고 스케치는 미지정으로 남깁니다.
+촬영 메모를 유지합니다. 구도만 선택해도 카메라 배치를 그리며, 화면 설명에 탑뷰/45도/정면/클로즈업이 명시돼 있으면 참고 스케치로 연결합니다. →로 연결한 2~4개 장면은 단면·꺼내기·감싸기 등 설명의 장면 흐름으로 표시합니다. 원고는 바꾸지 않고, 서로 다른 시점이 섞였거나 부정된 설명에서는 각도를 임의로 선택하지 않습니다. 카메라 시점이 적혀 있지 않으면 그 점을 표시합니다.
 
 ## GPT와 함께 만들기
 
@@ -24,8 +24,8 @@ https://rivaljin.github.io/youtube-tools/cook-conti.html
 추가했습니다. 예: seg1_angle, seg1_subject, seg1_motion, seg1_notes.
 
 - angle: top(탑뷰), oblique(45도), front(정면), close(클로즈업), 미지정은 빈 문자열.
-- subject: board(도마), bowl(그릇), pan(팬), plate(접시), hands(손), 미지정은 빈 문자열.
-- motion: none 또는 빈 문자열(없음), left/right/down/in(화면 안 피사체·손의 이동 방향).
+- subject: board(도마), bowl(그릇), pan(팬), plate(접시), hands(손), roll(롤), section(단면), mold(성형틀), sheet(감싸기), 미지정은 빈 문자열.
+- motion: none 또는 빈 문자열(없음), left/right/down/up/in(화면 안 피사체·손의 이동 방향).
 - notes: 주의·팁. screen은 짧은 구도 설명, script는 멘트, subtitle은 자막입니다.
 
 구도는 GPT와 논의해 정하며 근거 없이 추정하지 않습니다. JSON/Markdown 모두
