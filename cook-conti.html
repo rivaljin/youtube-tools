@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cook with Nampy — 콘티 작성 도우미</title>
-<link rel="stylesheet" href="./assets/conti.css">
+<link rel="stylesheet" href="./assets/conti.css?v=3.1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'맑은 고딕','Malgun Gothic',sans-serif;background:#f5f5f5;color:#333;line-height:1.6}
@@ -38,7 +38,7 @@ textarea.tall{min-height:100px}
 </head>
 <body>
 <div class="container">
-<h1>🍳 Cook with Nampy — 콘티 작성 도우미 <span class="status-tag">v3.0</span></h1>
+<h1>🍳 Cook with Nampy — 콘티 작성 도우미 <span class="status-tag">v3.1</span></h1>
 <p class="subtitle">GPT와 만든 콘티를 가져와 촬영 순서대로 확인하세요. 입력과 촬영 체크는 이 기기에 저장됩니다.</p>
 <div class="autosave" id="autosaveMsg"></div>
 
@@ -99,7 +99,7 @@ textarea.tall{min-height:100px}
 
 <div class="card" id="s5">
 <h2>5. 영상 콘티</h2>
-<p class="hint">각 구간별로 시간·화면·멘트·자막을 나눠 입력하세요.</p>
+<p class="hint">촬영 보기에는 스케치 · 멘트 · 자막 · 주의/팁만 크게 표시됩니다. 한 장면에 한 메시지로 짧게 작성하세요.</p>
 <div id="segments"></div>
 </div>
 
@@ -151,8 +151,9 @@ const SEGMENTS=[
  ['5-7. 완성량·플레이팅','seg7'],
  ['5-8. 시식·마무리','seg8'],
 ];
-const FIELDS=['time','screen','script','subtitle'];
-const FIELD_LABELS={time:'시간',screen:'화면',script:'멘트',subtitle:'자막'};
+const FIELDS=['time','screen','script','subtitle','angle','subject','motion','notes'];
+const SHOT_OPTIONS={angle:{'':'구도 미지정',top:'탑뷰 · 위에서',oblique:'45도 · 비스듬히',front:'정면',close:'클로즈업'},subject:{'':'피사체 미지정',board:'도마',bowl:'그릇',pan:'팬',plate:'완성 접시',hands:'손동작'},motion:{'':'움직임 없음',none:'움직임 없음',left:'왼쪽으로',right:'오른쪽으로',down:'아래로',in:'가운데로'}};
+const FIELD_LABELS={time:'시간',screen:'화면',script:'멘트',subtitle:'자막',angle:'구도',subject:'피사체',motion:'동작',notes:'주의 / 팁'};
 
 // 세그먼트 입력란 생성
 (function(){
@@ -162,7 +163,7 @@ const FIELD_LABELS={time:'시간',screen:'화면',script:'멘트',subtitle:'자�
     div.className='seg-box';
     let h=`<h4>${title}</h4><div class="grid2">`;
     FIELDS.forEach(f=>{
-      h+=`<div><label for="${prefix}_${f}">${FIELD_LABELS[f]}</label>${f==='time'?`<input type="text" id="${prefix}_${f}" placeholder="${FIELD_LABELS[f]}">`:`<textarea id="${prefix}_${f}" placeholder="${FIELD_LABELS[f]}"></textarea>`}</div>`;
+      h+=`<div><label for="${prefix}_${f}">${FIELD_LABELS[f]}</label>${SHOT_OPTIONS[f]?`<select id="${prefix}_${f}">${Object.entries(SHOT_OPTIONS[f]).map(([v,label])=>`<option value="${v}">${label}</option>`).join('')}</select>`:f==='time'?`<input type="text" id="${prefix}_${f}" placeholder="${FIELD_LABELS[f]}">`:`<textarea id="${prefix}_${f}" placeholder="${FIELD_LABELS[f]}"></textarea>`}</div>`;
     });
     h+='</div>';
     div.innerHTML=h;
@@ -177,12 +178,12 @@ SEGMENTS.forEach(([t,p])=>FIELDS.forEach(f=>ALL_IDS.push(`${p}_${f}`)));
 function saveAll(){
   const data={};
   ALL_IDS.forEach(id=>{const el=document.getElementById(id);if(el)data[id]=el.value;});
-  try{localStorage.setItem('cookContiV2',JSON.stringify(data));}catch(e){document.getElementById('autosaveMsg').textContent='저장 실패 · JSON 백업을 다운로드하세요';return false;}
+  try{localStorage.setItem('cookContiV31',JSON.stringify(data));}catch(e){document.getElementById('autosaveMsg').textContent='저장 실패 · JSON 백업을 다운로드하세요';return false;}
   document.getElementById('autosaveMsg').textContent='✓ 자동 저장됨 '+new Date().toLocaleTimeString();
 }
 function restoreAll(){
   try{
-    const data=JSON.parse(localStorage.getItem('cookContiV2')||'{}');
+    const data=JSON.parse(localStorage.getItem('cookContiV31')||'{}');
     ALL_IDS.forEach(id=>{const el=document.getElementById(id);if(el&&data[id]!==undefined)el.value=data[id];});
     if(Object.keys(data).length>0)document.getElementById('autosaveMsg').textContent='✓ 이전 입력 복원됨';
   }catch(e){}
@@ -192,6 +193,16 @@ ALL_IDS.forEach(id=>{
   if(el)el.addEventListener('input',()=>{window._lastMd='';document.getElementById('afterGen').style.display='none';document.getElementById('output').style.display='none';document.getElementById('warnBox').dataset.confirmed='';clearTimeout(window._st);window._st=setTimeout(saveAll,800);});
 });
 document.getElementById('writeDate').value=new Date().toLocaleDateString('sv-SE');
+// Copy a legacy draft once; never modify the old tool's saved data.
+try{
+ if(!localStorage.getItem('cookContiV31Migrated')){
+  if(localStorage.getItem('cookContiV31')===null){
+   const raw=localStorage.getItem('cookContiV2');
+   if(raw){const data=JSON.parse(raw);if(data&&typeof data==='object'&&!Array.isArray(data)&&ALL_IDS.every(id=>data[id]===undefined||typeof data[id]==='string'))localStorage.setItem('cookContiV31',raw);}
+  }
+  localStorage.setItem('cookContiV31Migrated','1');
+ }
+}catch(e){}
 restoreAll();
 
 function val(id){const el=document.getElementById(id);return el?el.value.trim():'';}
@@ -211,16 +222,16 @@ function loadExample(){
  document.getElementById('checklist').value='- [ ] 배터리 확인';
  document.getElementById('shootOrder').value='1. 준비 장면\n2. 핵심 과정\n3. 완성 장면';
  document.getElementById('mustShots').value='- [ ] 완성 장면';
- for(const [title,prefix] of SEGMENTS){document.getElementById(prefix+'_screen').value='가상 예시: '+title;document.getElementById(prefix+'_script').value='이곳에 논의한 멘트를 입력하세요.';}
- localStorage.removeItem('cookContiShootV3');window.dispatchEvent(new Event('conti-replaced'));saveAll();
+ for(const [title,prefix] of SEGMENTS){document.getElementById(prefix+'_screen').value='가상 예시: '+title;document.getElementById(prefix+'_script').value='이곳에 논의한 멘트를 입력하세요.';document.getElementById(prefix+'_angle').value=['top','oblique','close'][Number(prefix.slice(3))%3];document.getElementById(prefix+'_subject').value=prefix==='seg1'?'plate':'board';document.getElementById(prefix+'_notes').value='빛이 손에 가리지 않게 확인하세요.';}
+ localStorage.removeItem('cookContiShootV31');window.dispatchEvent(new Event('conti-replaced'));saveAll();
 }
 function clearAll(){
   if(!confirm('모든 입력과 촬영 체크를 지울까요? 필요한 내용은 먼저 JSON 백업하세요.'))return;
   clearTimeout(window._st);
-  localStorage.removeItem('cookContiShootV3');
+  localStorage.removeItem('cookContiShootV31');
   window.dispatchEvent(new Event('conti-replaced'));
   ALL_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  localStorage.removeItem('cookContiV2');
+  localStorage.removeItem('cookContiV31');
   document.getElementById('writeDate').value=new Date().toLocaleDateString('sv-SE');
 }
 
@@ -291,6 +302,7 @@ function generate(){
       if(s.screen)L.push(`- 화면: ${s.screen}`);
       if(s.script)L.push(`- 멘트: ${s.script}`);
       if(s.subtitle)L.push(`- 자막: ${s.subtitle}`);
+      for(const field of ['angle','subject','motion','notes'])if(s[field])L.push(`- ${FIELD_LABELS[field]}: ${s[field]}`);
     }
     L.push(``);
   });
@@ -341,6 +353,7 @@ function downloadMd(){
   URL.revokeObjectURL(a.href);
 }
 </script>
-<script src="./assets/conti.js"></script>
+<script src="./assets/sketch.js?v=3.1"></script>
+<script src="./assets/conti.js?v=3.1"></script>
 </body>
 </html>

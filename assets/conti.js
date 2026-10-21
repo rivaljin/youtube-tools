@@ -1,14 +1,14 @@
 (() => {
- const KEY='cookContiShootV3'; // Same-origin storage keys intentionally retained; verify and back up before moving.
+ const KEY='cookContiShootV31'; // Separate from the legacy tool; copy old state only until new state exists.
  const toolbar=document.createElement('div');toolbar.className='conti-toolbar';
  toolbar.innerHTML='<button id="edit-mode" aria-pressed="true">콘티 편집</button><button id="shoot-mode" aria-pressed="false">촬영 보기</button><button id="import-mode">GPT 콘티 가져오기</button><button id="backup-conti">JSON 백업</button>';
  document.querySelector('.autosave').after(toolbar);
- const migration=document.createElement('p');migration.className='conti-note';migration.textContent='유튜브 콘티 전용 도구입니다. 이전 도구에서 JSON 백업을 내려받고 여기서 가져오기 → 내용 확인 → 교체를 선택하세요. 같은 브라우저에서 기존 내용이 보이더라도 백업과 촬영 체크를 확인하세요. 자동 이전은 보장하지 않습니다.';toolbar.before(migration);
+ const migration=document.createElement('p');migration.className='conti-note migration-note';migration.textContent='유튜브 콘티 전용 도구입니다. 이전 도구에서 JSON 백업을 내려받고 여기서 가져오기 → 내용 확인 → 교체를 선택하세요. 같은 브라우저에서 기존 내용이 보이더라도 백업과 촬영 체크를 확인하세요. 자동 이전은 보장하지 않습니다.';toolbar.before(migration);
  const message=document.createElement('div');message.className='conti-save';message.setAttribute('role','status');toolbar.after(message);
  const importer=document.createElement('section');importer.className='conti-import';importer.hidden=true;
  importer.innerHTML='<h2>GPT 콘티 가져오기</h2><p class="conti-note">이 도구에서 내려받은 Markdown 또는 JSON을 붙여넣거나 파일로 선택하세요. GPT에는 아래 형식 안내를 전달하면 됩니다. 가져오기는 현재 콘티를 교체합니다.</p><textarea id="import-text" aria-label="콘티 Markdown 또는 JSON" placeholder="GPT가 보내준 콘티를 붙여넣으세요"></textarea><input id="import-file" type="file" accept=".md,.txt,.json,text/plain,text/markdown,application/json" aria-label="콘티 파일 선택"><p id="import-summary" role="status"></p><button id="import-preview">내용 확인</button> <button id="import-apply" disabled>현재 콘티 교체</button> <button id="gpt-format">GPT용 형식 안내 복사</button>';
  message.after(importer);
- let state;try{state=JSON.parse(localStorage.getItem(KEY)||'{}')}catch{state={}}
+ let state;try{state=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem('cookContiShootV3')||'{}')}catch{state={}}
  if(!state||typeof state!=='object'||Array.isArray(state))state={};
  if(!state.checks||typeof state.checks!=='object')state.checks={};
  if(!Array.isArray(state.order))state.order=[];
@@ -22,36 +22,49 @@
   const row=document.createElement('label');row.className='shoot-check';const input=document.createElement('input');input.type='checkbox';input.checked=state.checks[key]??initial;
   input.onchange=()=>{state.checks[key]=input.checked;persist();progress()};row.append(input,document.createTextNode(label));parent.append(row);
  }
- function progress(){const boxes=[...shooting.querySelectorAll('input[type=checkbox]')];document.getElementById('shoot-progress').textContent=`촬영 체크 ${boxes.filter(b=>b.checked).length} / ${boxes.length} 완료 · 체크는 이 기기에 저장됩니다`;}
+ function progress(){const boxes=[...shooting.querySelectorAll('.scene-card input[type=checkbox]')];document.getElementById('shoot-progress').textContent=`촬영 ${boxes.filter(b=>b.checked).length} / ${boxes.length} 완료`;}
  function checklist(parent,title,value,kind){
   if(!value.trim())return;const card=document.createElement('section');card.className='shoot-card';text('h2',title,card);
   value.split('\n').filter(l=>l.trim()).forEach((line,i)=>check(card,line.replace(/^\s*(?:[-*]|\d+[.)])?\s*(?:\[[ xX]\])?\s*/,''),kind+':'+i+':'+line,/\[[xX]\]/.test(line)));parent.append(card);
  }
  function renderShoot(){
-  shooting.replaceChildren();text('h1',val('dishName')||'촬영 콘티',shooting);const p=text('div','',shooting);p.id='shoot-progress';p.className='shoot-progress';
-  text('p','영상의 편집 순서와 실제 촬영 순서는 다를 수 있습니다. 아래 장면은 ↑↓로 촬영할 순서에 맞춰 바꾸세요.',shooting).className='conti-note';
-  checklist(shooting,'촬영 전 확인',val('checklist'),'before');checklist(shooting,'실제 촬영 순서',val('shootOrder'),'order');
+  shooting.replaceChildren();
+  text('h1',val('dishName')||'촬영 콘티',shooting);const p=text('div','',shooting);p.id='shoot-progress';p.className='shoot-progress';p.setAttribute('role','status');p.setAttribute('aria-live','polite');
   const available=SEGMENTS.filter(([,prefix])=>FIELDS.some(f=>val(prefix+'_'+f)));
   const order=[...new Set([...state.order,...available.map(([,p])=>p)])].filter(p=>available.some(([,x])=>x===p));state.order=order;
+  if(!order.includes(state.active))state.active=order[0];
+  const nav=document.createElement('nav');nav.className='scene-nav';nav.setAttribute('aria-label','장면 이동');
+  const prev=text('button','← 이전',nav);const select=document.createElement('select');select.setAttribute('aria-label','촬영 장면 선택');
+  for(const [i,prefix] of order.entries()){const option=text('option',`${i+1} / ${order.length} · ${SEGMENTS.find(([,p])=>p===prefix)[0].replace(/^5-\d+\. /,'')}`,select);option.value=prefix;}select.value=state.active||'';nav.append(select);const next=text('button','다음 →',nav);prev.disabled=next.disabled=!order.length;shooting.append(nav);
+  function show(prefix,focus=false){state.active=prefix;persist();for(const card of shooting.querySelectorAll('.scene-card'))card.hidden=card.dataset.scene!==prefix;select.value=prefix;const i=order.indexOf(prefix);prev.disabled=i<=0;next.disabled=i<0||i===order.length-1;if(focus){const heading=shooting.querySelector('.scene-card:not([hidden]) h2');heading?.focus({preventScroll:true});window.scrollTo({top:0,behavior:'smooth'});}}
+  prev.onclick=()=>show(order[order.indexOf(state.active)-1],true);next.onclick=()=>show(order[order.indexOf(state.active)+1],true);select.onchange=()=>show(select.value,true);
   order.forEach((prefix,index)=>{
-   const [title]=SEGMENTS.find(([,p])=>p===prefix);const card=document.createElement('section');card.className='shoot-card'+(state.checks['scene:'+prefix]?' done':'');text('h2',title,card);
-   for(const f of FIELDS){const v=val(prefix+'_'+f);if(v){text('h3',FIELD_LABELS[f],card);text('p',v,card)}}
-   check(card,'이 장면 촬영 완료','scene:'+prefix);
-   card.querySelector('input').addEventListener('change',e=>card.classList.toggle('done',e.target.checked));
-   const controls=document.createElement('div');controls.className='shoot-controls';
-   for(const [label,offset] of [['↑ 앞에 촬영',-1],['↓ 뒤에 촬영',1]]){const b=text('button',label,controls);b.disabled=index+offset<0||index+offset>=order.length;b.onclick=()=>{[state.order[index],state.order[index+offset]]=[state.order[index+offset],state.order[index]];persist();renderShoot()};}card.append(controls);shooting.append(card);
+   const [title]=SEGMENTS.find(([,p])=>p===prefix);const card=document.createElement('section');card.dataset.scene=prefix;card.className='shoot-card scene-card'+(state.checks['scene:'+prefix]?' done':'');const heading=text('h2',title,card);heading.tabIndex=-1;
+   const frame=document.createElement('figure');frame.className='story-frame';frame.append(renderContiSketch({angle:val(prefix+'_angle'),subject:val(prefix+'_subject'),motion:val(prefix+'_motion')},prefix));
+   if(val(prefix+'_screen'))text('figcaption',val(prefix+'_screen'),frame);card.append(frame);
+   const copy=document.createElement('div');copy.className='scene-copy';
+   for(const [field,label] of [['script','멘트'],['subtitle','자막'],['notes','주의 / 팁']]){
+    const value=val(prefix+'_'+field);if(!value)continue;
+    const block=document.createElement('section');block.className='shot-'+field;text('h3',label,block);text('p',value,block);copy.append(block);
+   }
+   if(!copy.children.length)text('p','멘트·자막·팁은 콘티 편집에서 넣으세요.',copy).className='conti-note';card.append(copy);
+   check(card,'촬영 완료','scene:'+prefix);card.querySelector('input').addEventListener('change',e=>card.classList.toggle('done',e.target.checked));
+   const reorder=document.createElement('details');reorder.className='scene-reorder';text('summary','촬영 순서 조정',reorder);const controls=document.createElement('div');controls.className='shoot-controls';
+   for(const [label,offset] of [['↑ 앞에 촬영',-1],['↓ 뒤에 촬영',1]]){const button=text('button',label,controls);button.disabled=index+offset<0||index+offset>=order.length;button.onclick=()=>{[state.order[index],state.order[index+offset]]=[state.order[index+offset],state.order[index]];persist();renderShoot()};}reorder.append(controls);card.append(reorder);shooting.append(card);
   });
-  if(!order.length)text('p','아직 장면이 없습니다. 콘티를 가져오거나 편집 화면의 영상 콘티를 입력하세요.',shooting);
-  checklist(shooting,'꼭 확보할 장면',val('mustShots'),'must');checklist(shooting,'완료 전 남은 확인',val('remaining'),'remaining');
-  for(const [title,value] of [['조리 순서',val('cookSteps')],['실패 방지 포인트',val('failPoint')],['제목·썸네일',[val('titles'),val('thumbnail')].filter(Boolean).join('\n')]])if(value){const card=document.createElement('section');card.className='shoot-card';text('h2',title,card);text('p',value,card);shooting.append(card)}
-  const reset=text('button','촬영 체크 초기화',shooting);reset.className='btn btn-gray';reset.onclick=()=>{if(confirm('현재 콘티의 촬영 체크만 초기화할까요?')){state.checks={};persist();renderShoot()}};progress();
+  if(!order.length)text('p','아직 장면이 없습니다. GPT 콘티를 가져오거나 편집 화면에서 입력하세요.',shooting);
+  const reference=document.createElement('details');reference.className='shoot-reference';text('summary','준비 목록 · 조리 순서 · 기타 메모',reference);
+  checklist(reference,'촬영 전 확인',val('checklist'),'before');checklist(reference,'실제 촬영 순서',val('shootOrder'),'order');checklist(reference,'꼭 확보할 장면',val('mustShots'),'must');checklist(reference,'완료 전 남은 확인',val('remaining'),'remaining');
+  for(const [title,value] of [['조리 순서',val('cookSteps')],['실패 방지 포인트',val('failPoint')],['제목·썸네일',[val('titles'),val('thumbnail')].filter(Boolean).join('\n')]])if(value){const card=document.createElement('section');card.className='shoot-card';text('h2',title,card);text('p',value,card);reference.append(card)}
+  const reset=text('button','촬영 체크 초기화',reference);reset.className='btn btn-gray';reset.onclick=()=>{if(confirm('현재 콘티의 촬영 체크만 초기화할까요?')){state.checks={};persist();renderShoot()}};shooting.append(reference);progress();if(order.length)show(state.active);
  }
  async function holdScreen(){if(!shooting.hidden&&document.visibilityState==='visible'&&navigator.wakeLock){try{wake=await navigator.wakeLock.request('screen');message.textContent='촬영 보기 · 화면 켜짐 유지 중'}catch{message.textContent='화면 유지가 지원되지 않습니다. 아이폰 자동 잠금을 확인하세요.'}}}
  function mode(shoot){saveAll();document.getElementById('editor').hidden=shoot;shooting.hidden=!shoot;document.body.classList.toggle('shooting-mode',shoot);document.getElementById('shoot-mode').setAttribute('aria-pressed',shoot);document.getElementById('edit-mode').setAttribute('aria-pressed',!shoot);if(shoot){renderShoot();message.textContent='촬영 보기 · 화면 자동 잠금은 기기 설정에 따라 달라질 수 있습니다.';holdScreen()}else{wake?.release();message.textContent='편집 후 촬영 보기로 돌아가면 최신 내용이 표시됩니다.'}window.scrollTo(0,0)}
  document.getElementById('edit-mode').onclick=()=>mode(false);document.getElementById('shoot-mode').onclick=()=>mode(true);document.addEventListener('visibilitychange',holdScreen);
+ function validateShots(fields){for(const [,prefix] of SEGMENTS)for(const [field,options] of Object.entries(SHOT_OPTIONS)){const value=fields[prefix+'_'+field]||'';if(!Object.hasOwn(options,value))throw Error(FIELD_LABELS[field]+' 값이 지원 목록에 없습니다. GPT용 형식 안내를 확인하세요.');}}
  function normalize(raw){
   const source=raw.replace(/^\s*```(?:json|markdown|md)?\s*\n/,'').replace(/\n```\s*$/,'').trim();
-  if(source.startsWith('{')){const obj=JSON.parse(source);if(!obj||Array.isArray(obj)||typeof obj!=='object'||(obj.version!==undefined&&obj.version!==1))throw Error('지원하지 않는 콘티 JSON 형식입니다.');const data=obj.fields||obj;if(!data||typeof data!=='object'||Array.isArray(data))throw Error('콘티 필드 객체가 필요합니다.');const result={};for(const id of ALL_IDS){if(data[id]!==undefined&&typeof data[id]!=='string')throw Error(id+' 값은 텍스트여야 합니다.');result[id]=data[id]||''}if(!result.dishName.trim())throw Error('요리명이 없습니다.');return {fields:result,shooting:obj.version===1?obj.shooting:null};}
+  if(source.startsWith('{')){const obj=JSON.parse(source);if(!obj||Array.isArray(obj)||typeof obj!=='object'||(obj.version!==undefined&&obj.version!==1))throw Error('지원하지 않는 콘티 JSON 형식입니다.');const data=obj.fields||obj;if(!data||typeof data!=='object'||Array.isArray(data))throw Error('콘티 필드 객체가 필요합니다.');const result={};for(const id of ALL_IDS){if(data[id]!==undefined&&typeof data[id]!=='string')throw Error(id+' 값은 텍스트여야 합니다.');result[id]=data[id]||''}if(!result.dishName.trim())throw Error('요리명이 없습니다.');validateShots(result);return {fields:result,shooting:obj.version===1?obj.shooting:null};}
   const result=Object.fromEntries(ALL_IDS.map(id=>[id,'']));let section=null,seg=null,field=null;const lines={};
   const sections={1:'concept',2:'checklist',3:'ingredients',4:'cookSteps',5:'segments',6:'shootOrder',7:'mustShots',8:'titles',9:'remaining'};
   const add=(id,line)=>{(lines[id]??=[]).push(line)};
@@ -61,7 +74,7 @@
    if((m=line.match(/^##\s+(\d+)[.\s]/))){section=sections[m[1]];seg=null;field=null;continue}
    if(section==='segments'){
     if((m=line.match(/^###\s+5-(\d+)/))){seg='seg'+m[1];field=null;continue}
-    if(seg&&(m=line.match(/^-\s*(시간|화면|멘트|자막):\s*(.*)$/))){field=Object.keys(FIELD_LABELS).find(k=>FIELD_LABELS[k]===m[1]);add(seg+'_'+field,m[2]);continue}
+    if(seg&&(m=line.match(/^-\s*(시간|화면|멘트|자막|구도|피사체|동작|주의 \/ 팁):\s*(.*)$/))){field=Object.keys(FIELD_LABELS).find(k=>FIELD_LABELS[k]===m[1]);add(seg+'_'+field,m[2]);continue}
     if(seg&&field&&line.trim())add(seg+'_'+field,line);continue;
    }
    if(section==='concept'){
@@ -80,21 +93,22 @@
   for(const [key,value] of Object.entries(lines))if(ALL_IDS.includes(key))result[key]=value.join('\n').trim();
   for(const key of ALL_IDS)if(result[key]==='[작성 필요]')result[key]='';
   if(!result.dishName||!source.match(/^##\s+5[.\s]/m)||!FIELDS.some(f=>SEGMENTS.some(([,p])=>result[p+'_'+f])))throw Error('콘티 형식을 인식하지 못했습니다. GPT용 형식 안내의 JSON 형식을 사용하세요.');
-  return {fields:result,shooting:null};
+  validateShots(result);return {fields:result,shooting:null};
  }
  const input=document.getElementById('import-text'),summary=document.getElementById('import-summary'),apply=document.getElementById('import-apply');
  const invalidate=()=>{pending=null;apply.disabled=true;summary.textContent='';};input.oninput=invalidate;
  document.getElementById('import-mode').onclick=()=>{importer.hidden=!importer.hidden};
- document.getElementById('import-file').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>2e6)throw Error('파일은 2MB 이하로 선택하세요.');input.value=await f.text();invalidate()}catch(err){summary.textContent=err.message}finally{e.target.value=''}};
+ document.getElementById('import-file').onchange=async e=>{invalidate();try{const f=e.target.files[0];if(!f)return;if(f.size>2e6)throw Error('파일은 2MB 이하로 선택하세요.');input.value=await f.text();invalidate()}catch(err){summary.textContent=err.message}finally{e.target.value=''}};
  document.getElementById('import-preview').onclick=()=>{try{if(input.value.length>2e6)throw Error('콘티가 너무 큽니다.');pending=normalize(input.value);summary.textContent=`${pending.fields.dishName} · ${SEGMENTS.filter(([,p])=>FIELDS.some(f=>pending.fields[p+'_'+f])).length}개 영상 구간 · 조리 순서 ${pending.fields.cookSteps?'있음':'없음'} · 현재 입력을 교체합니다.`;apply.disabled=false}catch(e){pending=null;apply.disabled=true;summary.textContent=e.message}};
  apply.onclick=()=>{if(!pending||!confirm('현재 콘티와 촬영 체크를 가져온 내용으로 교체할까요? 먼저 JSON 백업을 권합니다.'))return;clearTimeout(window._st);for(const id of ALL_IDS)document.getElementById(id).value=pending.fields[id];state={checks:{},order:[]};if(pending.shooting&&typeof pending.shooting==='object'){
+  if(typeof pending.shooting.active==='string'&&SEGMENTS.some(([,p])=>p===pending.shooting.active))state.active=pending.shooting.active;
   if(Array.isArray(pending.shooting.order))state.order=pending.shooting.order.filter(p=>SEGMENTS.some(([,x])=>x===p));
   if(pending.shooting.checks&&typeof pending.shooting.checks==='object')for(const [k,v] of Object.entries(pending.shooting.checks))if(typeof v==='boolean')state.checks[k]=v;
  }persist();saveAll();window._lastMd='';document.getElementById('output').style.display='none';document.getElementById('afterGen').style.display='none';importer.hidden=true;mode(true);};
  document.getElementById('backup-conti').onclick=()=>{saveAll();const blob=new Blob([JSON.stringify({version:1,fields:getData(),shooting:state},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(val('dishName')||'conti').replace(/[^\w가-힣-]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)};
  document.getElementById('gpt-format').onclick=async()=>{
   const template={version:1,fields:Object.fromEntries(ALL_IDS.map(id=>[id,'']))};
-  const prompt='함께 논의한 요리 영상 콘티를 아래 JSON 구조로 작성해 주세요. 키는 그대로 유지하고 값은 모두 문자열로 작성하세요. seg1~seg8은 오프닝, 재료·분량, 준비·실패방지, 핵심 조리, 꺼내기·마무리, 응용형(선택), 완성량·플레이팅, 시식·마무리입니다. 각 구간 time/screen/script/subtitle은 시간/화면/멘트/자막입니다. shootOrder는 실제 촬영 순서, mustShots는 필수 장면을 한 줄에 하나씩 작성하세요. 기본 필드: dishName 요리명, writeDate 작성일, editLength 편집 길이, constraints 촬영 제약, concept1 한 문장 콘셉트, concept3 핵심 3가지, viewerGain 시청자가 얻는 것, toVerify 확인할 점, checklist 촬영 전 체크리스트, ingredients 재료, tools 도구, variation 응용형, cookSteps 조리 순서, failPoint 실패 방지, titles 제목 후보, thumbnail 썸네일, remaining 남은 확인입니다. 확인되지 않은 수치나 결과는 확인 필요로 남겨 주세요.\n'+JSON.stringify(template,null,2);
+  const prompt='함께 논의한 요리 영상 콘티를 아래 JSON 구조로 작성해 주세요. 키는 그대로 유지하고 값은 모두 문자열로 작성하세요. seg1~seg8은 오프닝, 재료·분량, 준비·실패방지, 핵심 조리, 꺼내기·마무리, 응용형(선택), 완성량·플레이팅, 시식·마무리입니다. 각 구간 time/screen/script/subtitle은 시간/구도 설명/멘트/자막입니다. 촬영 화면은 스케치, 멘트, 자막, 주의·팁만 표시합니다. 한 장면에 한 메시지만 담고 멘트는 자연스러운 1~2문장, 자막은 짧은 핵심어, notes는 필요한 주의·팁 한 줄로 적으세요. 첫 장면은 결과나 궁금증이 바로 보이는 훅으로 제안하되 확인하지 않은 성과·맛·수치는 단정하지 마세요. screen은 짧은 촬영 설명입니다. 스케치용 angle은 top/oblique/front/close(탑뷰/45도/정면/클로즈업), subject는 board/bowl/pan/plate/hands(도마/그릇/팬/접시/손), motion은 빈 문자열/none/left/right/down/in 중 하나로 정하세요. 구도가 합의되지 않았다면 빈 문자열로 남기고 임의로 추정하지 마세요. notes는 주의·팁입니다. shootOrder는 실제 촬영 순서, mustShots는 필수 장면을 한 줄에 하나씩 작성하세요. 기본 필드: dishName 요리명, writeDate 작성일, editLength 편집 길이, constraints 촬영 제약, concept1 한 문장 콘셉트, concept3 핵심 3가지, viewerGain 시청자가 얻는 것, toVerify 확인할 점, checklist 촬영 전 체크리스트, ingredients 재료, tools 도구, variation 응용형, cookSteps 조리 순서, failPoint 실패 방지, titles 제목 후보, thumbnail 썸네일, remaining 남은 확인입니다. 확인되지 않은 수치나 결과는 확인 필요로 남겨 주세요.\n'+JSON.stringify(template,null,2);
   try{await navigator.clipboard.writeText(prompt);summary.textContent='GPT용 형식 안내를 복사했습니다. GPT 대화에 붙여넣으세요.'}catch{input.value=prompt;summary.textContent='복사하지 못했습니다. 입력란의 형식 안내를 직접 복사하세요.'}
  };
  window.addEventListener('pagehide',()=>{clearTimeout(window._st);saveAll()});
