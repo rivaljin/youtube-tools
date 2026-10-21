@@ -1,3 +1,10 @@
+# v3.2 — 장면별 스케치 이미지
+
+촬영 보기의 각 장면에서 ‘스케치 이미지 첨부 · 교체’를 열어 JPEG·PNG·WebP 파일을 선택한다. 첨부한 그림을 기본 SVG 대신 전체 비율로 표시한다. 멘트·자막·팁은 별도로 유지한다.
+JSON 백업에는 선택 필드 `sketches`가 추가된다. `seg1`~`seg8`을 키로 하고 값은 JPEG·PNG·WebP의 base64 data URL이다. 외부 이미지 URL·SVG·HTML은 허용하지 않는다. 기존 version 1·이미지 없는 JSON도 계속 가져올 수 있다.
+그림은 이 브라우저에 저장되며 서버로 업로드하지 않는다. JSON 백업을 비공개 보관하고 다른 기기에서 불러온다. 브라우저 저장 공간이 부족하면 경고하며 백업을 내려받아야 한다. Markdown에는 이미지가 포함되지 않는다.
+실제 콘티·스케치는 비공개 nampy-assets에 보관한다. 공개 저장소에는 앱 코드와 가상 테스트만 둔다.
+
 # 유튜브 콘티 v3.1.1 · 촬영용 스토리보드
 
 https://rivaljin.github.io/youtube-tools/cook-conti.html

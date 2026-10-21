@@ -1,4 +1,18 @@
 (() => {
+ const SKETCH_KEY='cookContiImagesV1';
+ let sketches={};
+ try{sketches=validateSketches(JSON.parse(localStorage.getItem(SKETCH_KEY)||'{}'))}catch{}
+ function validateSketches(raw){
+  if(raw===undefined)return {};
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('스케치 형식을 확인하세요.');
+  const out={};let total=0;
+  for(const [key,value] of Object.entries(raw)){
+   if(!/^seg[1-8]$/.test(key))continue;
+   if(typeof value!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value))throw Error('스케치는 JPEG·PNG·WebP 내장 이미지만 지원합니다.');
+   total+=value.length;if(total>12e6)throw Error('스케치 전체 크기는 12MB 이하여야 합니다.');out[key]=value;
+  }return out;
+ }
+ function persistSketches(){try{localStorage.setItem(SKETCH_KEY,JSON.stringify(sketches))}catch{message.textContent='스케치 저장 공간이 부족합니다. 창을 닫기 전에 JSON 백업을 내려받으세요.';}}
  const KEY='cookContiShootV31'; // Separate from the legacy tool; copy old state only until new state exists.
  const toolbar=document.createElement('div');toolbar.className='conti-toolbar';
  toolbar.innerHTML='<button id="edit-mode" aria-pressed="true">콘티 편집</button><button id="shoot-mode" aria-pressed="false">촬영 보기</button><button id="import-mode">GPT 콘티 가져오기</button><button id="backup-conti">JSON 백업</button>';
@@ -14,7 +28,7 @@
  if(!Array.isArray(state.order))state.order=[];
  let wake=null,pending=null;
  const shooting=document.getElementById('shooting');
- window.addEventListener('conti-replaced',()=>{state={checks:{},order:[]};persist();window._lastMd='';document.getElementById('output').style.display='none';document.getElementById('afterGen').style.display='none';document.getElementById('warnBox').dataset.confirmed='';});
+ window.addEventListener('conti-replaced',()=>{sketches={};persistSketches();state={checks:{},order:[]};persist();window._lastMd='';document.getElementById('output').style.display='none';document.getElementById('afterGen').style.display='none';document.getElementById('warnBox').dataset.confirmed='';});
  const getData=()=>Object.fromEntries(ALL_IDS.map(id=>[id,document.getElementById(id).value]));
  function persist(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{message.textContent='촬영 체크 저장 실패 · JSON 백업을 다운로드하세요';}}
  function text(tag,value,parent){const el=document.createElement(tag);el.textContent=value;parent.append(el);return el;}
@@ -40,8 +54,12 @@
   prev.onclick=()=>show(order[order.indexOf(state.active)-1],true);next.onclick=()=>show(order[order.indexOf(state.active)+1],true);select.onchange=()=>show(select.value,true);
   order.forEach((prefix,index)=>{
    const [title]=SEGMENTS.find(([,p])=>p===prefix);const card=document.createElement('section');card.dataset.scene=prefix;card.className='shoot-card scene-card'+(state.checks['scene:'+prefix]?' done':'');const heading=text('h2',title,card);heading.tabIndex=-1;
-   const frame=document.createElement('figure');frame.className='story-frame';frame.append(renderContiSketch({angle:val(prefix+'_angle'),subject:val(prefix+'_subject'),motion:val(prefix+'_motion'),description:val(prefix+'_screen'),context:val('dishName')},prefix));
+   const frame=document.createElement('figure');frame.className='story-frame';if(sketches[prefix]){const image=document.createElement('img');image.src=sketches[prefix];image.alt=title+' 촬영용 스토리보드';image.className='storyboard-image';frame.append(image);}else frame.append(renderContiSketch({angle:val(prefix+'_angle'),subject:val(prefix+'_subject'),motion:val(prefix+'_motion'),description:val(prefix+'_screen'),context:val('dishName')},prefix));
    if(val(prefix+'_screen'))text('figcaption',val(prefix+'_screen'),frame);card.append(frame);
+   const imageTools=document.createElement('details');imageTools.className='scene-image-tools';text('summary','스케치 이미지 첨부 · 교체',imageTools);
+   const imageInput=document.createElement('input');imageInput.type='file';imageInput.accept='image/jpeg,image/png,image/webp';imageInput.setAttribute('aria-label',title+' 스케치 이미지');
+   imageInput.onchange=async()=>{try{const file=imageInput.files[0];if(!file)return;if(file.size>4e6)throw Error('이미지는 4MB 이하로 선택하세요.');if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('JPEG·PNG·WebP를 선택하세요.');const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(Error('이미지를 읽지 못했습니다.'));r.readAsDataURL(file)});const next=validateSketches({...sketches,[prefix]:data});sketches=next;persistSketches();renderShoot();}catch(e){message.textContent=e.message;}};
+   imageTools.append(imageInput);if(sketches[prefix]){const remove=text('button','이 장면 이미지 해제',imageTools);remove.onclick=()=>{if(confirm('첨부 이미지를 해제하고 기본 구도 그림으로 돌아갈까요?')){delete sketches[prefix];persistSketches();renderShoot();}};}card.append(imageTools);
    const copy=document.createElement('div');copy.className='scene-copy';
    for(const [field,label] of [['script','멘트'],['subtitle','자막'],['notes','주의 / 팁']]){
     const value=val(prefix+'_'+field);if(!value)continue;
@@ -64,7 +82,7 @@
  function validateShots(fields){for(const [,prefix] of SEGMENTS)for(const [field,options] of Object.entries(SHOT_OPTIONS)){const value=fields[prefix+'_'+field]||'';if(!Object.hasOwn(options,value))throw Error(FIELD_LABELS[field]+' 값이 지원 목록에 없습니다. GPT용 형식 안내를 확인하세요.');}}
  function normalize(raw){
   const source=raw.replace(/^\s*```(?:json|markdown|md)?\s*\n/,'').replace(/\n```\s*$/,'').trim();
-  if(source.startsWith('{')){const obj=JSON.parse(source);if(!obj||Array.isArray(obj)||typeof obj!=='object'||(obj.version!==undefined&&obj.version!==1))throw Error('지원하지 않는 콘티 JSON 형식입니다.');const data=obj.fields||obj;if(!data||typeof data!=='object'||Array.isArray(data))throw Error('콘티 필드 객체가 필요합니다.');const result={};for(const id of ALL_IDS){if(data[id]!==undefined&&typeof data[id]!=='string')throw Error(id+' 값은 텍스트여야 합니다.');result[id]=data[id]||''}if(!result.dishName.trim())throw Error('요리명이 없습니다.');validateShots(result);return {fields:result,shooting:obj.version===1?obj.shooting:null};}
+  if(source.startsWith('{')){const obj=JSON.parse(source);if(!obj||Array.isArray(obj)||typeof obj!=='object'||(obj.version!==undefined&&obj.version!==1))throw Error('지원하지 않는 콘티 JSON 형식입니다.');const data=obj.fields||obj;if(!data||typeof data!=='object'||Array.isArray(data))throw Error('콘티 필드 객체가 필요합니다.');const result={};for(const id of ALL_IDS){if(data[id]!==undefined&&typeof data[id]!=='string')throw Error(id+' 값은 텍스트여야 합니다.');result[id]=data[id]||''}if(!result.dishName.trim())throw Error('요리명이 없습니다.');validateShots(result);return {fields:result,shooting:obj.version===1?obj.shooting:null,sketches:validateSketches(obj.sketches)};}
   const result=Object.fromEntries(ALL_IDS.map(id=>[id,'']));let section=null,seg=null,field=null;const lines={};
   const sections={1:'concept',2:'checklist',3:'ingredients',4:'cookSteps',5:'segments',6:'shootOrder',7:'mustShots',8:'titles',9:'remaining'};
   const add=(id,line)=>{(lines[id]??=[]).push(line)};
@@ -93,19 +111,19 @@
   for(const [key,value] of Object.entries(lines))if(ALL_IDS.includes(key))result[key]=value.join('\n').trim();
   for(const key of ALL_IDS)if(result[key]==='[작성 필요]')result[key]='';
   if(!result.dishName||!source.match(/^##\s+5[.\s]/m)||!FIELDS.some(f=>SEGMENTS.some(([,p])=>result[p+'_'+f])))throw Error('콘티 형식을 인식하지 못했습니다. GPT용 형식 안내의 JSON 형식을 사용하세요.');
-  validateShots(result);return {fields:result,shooting:null};
+  validateShots(result);return {fields:result,shooting:null,sketches:{}};
  }
  const input=document.getElementById('import-text'),summary=document.getElementById('import-summary'),apply=document.getElementById('import-apply');
  const invalidate=()=>{pending=null;apply.disabled=true;summary.textContent='';};input.oninput=invalidate;
  document.getElementById('import-mode').onclick=()=>{importer.hidden=!importer.hidden};
- document.getElementById('import-file').onchange=async e=>{invalidate();try{const f=e.target.files[0];if(!f)return;if(f.size>2e6)throw Error('파일은 2MB 이하로 선택하세요.');input.value=await f.text();invalidate()}catch(err){summary.textContent=err.message}finally{e.target.value=''}};
- document.getElementById('import-preview').onclick=()=>{try{if(input.value.length>2e6)throw Error('콘티가 너무 큽니다.');pending=normalize(input.value);summary.textContent=`${pending.fields.dishName} · ${SEGMENTS.filter(([,p])=>FIELDS.some(f=>pending.fields[p+'_'+f])).length}개 영상 구간 · 조리 순서 ${pending.fields.cookSteps?'있음':'없음'} · 현재 입력을 교체합니다.`;apply.disabled=false}catch(e){pending=null;apply.disabled=true;summary.textContent=e.message}};
- apply.onclick=()=>{if(!pending||!confirm('현재 콘티와 촬영 체크를 가져온 내용으로 교체할까요? 먼저 JSON 백업을 권합니다.'))return;clearTimeout(window._st);for(const id of ALL_IDS)document.getElementById(id).value=pending.fields[id];state={checks:{},order:[]};if(pending.shooting&&typeof pending.shooting==='object'){
+ document.getElementById('import-file').onchange=async e=>{invalidate();try{const f=e.target.files[0];if(!f)return;if(f.size>16e6)throw Error('파일은 16MB 이하로 선택하세요.');input.value=await f.text();invalidate()}catch(err){summary.textContent=err.message}finally{e.target.value=''}};
+ document.getElementById('import-preview').onclick=()=>{try{if(input.value.length>16e6)throw Error('콘티가 너무 큽니다.');pending=normalize(input.value);summary.textContent=`${pending.fields.dishName} · ${SEGMENTS.filter(([,p])=>FIELDS.some(f=>pending.fields[p+'_'+f])).length}개 영상 구간 · 조리 순서 ${pending.fields.cookSteps?'있음':'없음'} · 스케치 ${Object.keys(pending.sketches||{}).length}장 · 현재 입력을 교체합니다.`;apply.disabled=false}catch(e){pending=null;apply.disabled=true;summary.textContent=e.message}};
+ apply.onclick=()=>{if(!pending||!confirm('현재 콘티와 촬영 체크를 가져온 내용으로 교체할까요? 먼저 JSON 백업을 권합니다.'))return;clearTimeout(window._st);sketches=pending.sketches||{};persistSketches();for(const id of ALL_IDS)document.getElementById(id).value=pending.fields[id];state={checks:{},order:[]};if(pending.shooting&&typeof pending.shooting==='object'){
   if(typeof pending.shooting.active==='string'&&SEGMENTS.some(([,p])=>p===pending.shooting.active))state.active=pending.shooting.active;
   if(Array.isArray(pending.shooting.order))state.order=pending.shooting.order.filter(p=>SEGMENTS.some(([,x])=>x===p));
   if(pending.shooting.checks&&typeof pending.shooting.checks==='object')for(const [k,v] of Object.entries(pending.shooting.checks))if(typeof v==='boolean')state.checks[k]=v;
  }persist();saveAll();window._lastMd='';document.getElementById('output').style.display='none';document.getElementById('afterGen').style.display='none';importer.hidden=true;mode(true);};
- document.getElementById('backup-conti').onclick=()=>{saveAll();const blob=new Blob([JSON.stringify({version:1,fields:getData(),shooting:state},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(val('dishName')||'conti').replace(/[^\w가-힣-]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)};
+ document.getElementById('backup-conti').onclick=()=>{saveAll();const blob=new Blob([JSON.stringify({version:1,fields:getData(),shooting:state,sketches},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(val('dishName')||'conti').replace(/[^\w가-힣-]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)};
  document.getElementById('gpt-format').onclick=async()=>{
   const template={version:1,fields:Object.fromEntries(ALL_IDS.map(id=>[id,'']))};
   const prompt='함께 논의한 요리 영상 콘티를 아래 JSON 구조로 작성해 주세요. 키는 그대로 유지하고 값은 모두 문자열로 작성하세요. seg1~seg8은 오프닝, 재료·분량, 준비·실패방지, 핵심 조리, 꺼내기·마무리, 응용형(선택), 완성량·플레이팅, 시식·마무리입니다. 각 구간 time/screen/script/subtitle은 시간/구도 설명/멘트/자막입니다. 촬영 화면은 스케치, 멘트, 자막, 주의·팁만 표시합니다. 한 장면에 한 메시지만 담고 멘트는 자연스러운 1~2문장, 자막은 짧은 핵심어, notes는 필요한 주의·팁 한 줄로 적으세요. 첫 장면은 결과나 궁금증이 바로 보이는 훅으로 제안하되 확인하지 않은 성과·맛·수치는 단정하지 마세요. screen은 짧은 촬영 설명입니다. 스케치용 angle은 top/oblique/front/close(탑뷰/45도/정면/클로즈업), subject는 board/bowl/pan/plate/hands/roll/section/mold/sheet(도마/그릇/팬/접시/손/롤/단면/틀/감싸기), motion은 빈 문자열/none/left/right/down/up/in 중 하나로 정하세요. 구도가 합의되지 않았다면 빈 문자열로 남기고 임의로 추정하지 마세요. notes는 주의·팁입니다. shootOrder는 실제 촬영 순서, mustShots는 필수 장면을 한 줄에 하나씩 작성하세요. 기본 필드: dishName 요리명, writeDate 작성일, editLength 편집 길이, constraints 촬영 제약, concept1 한 문장 콘셉트, concept3 핵심 3가지, viewerGain 시청자가 얻는 것, toVerify 확인할 점, checklist 촬영 전 체크리스트, ingredients 재료, tools 도구, variation 응용형, cookSteps 조리 순서, failPoint 실패 방지, titles 제목 후보, thumbnail 썸네일, remaining 남은 확인입니다. 확인되지 않은 수치나 결과는 확인 필요로 남겨 주세요.\n'+JSON.stringify(template,null,2);
