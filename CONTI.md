@@ -3,7 +3,7 @@
 촬영 보기의 각 장면에서 ‘스케치 이미지 첨부 · 교체’를 열어 JPEG·PNG·WebP 파일을 선택한다. 첨부한 그림을 기본 SVG 대신 전체 비율로 표시한다. 멘트·자막·팁은 별도로 유지한다.
 JSON 백업에는 선택 필드 `sketches`가 추가된다. `seg1`~`seg8`을 키로 하고 값은 JPEG·PNG·WebP의 base64 data URL이다. 외부 이미지 URL·SVG·HTML은 허용하지 않는다. 기존 version 1·이미지 없는 JSON도 계속 가져올 수 있다.
 그림은 이 브라우저에 저장되며 서버로 업로드하지 않는다. JSON 백업을 비공개 보관하고 다른 기기에서 불러온다. 브라우저 저장 공간이 부족하면 경고하며 백업을 내려받아야 한다. Markdown에는 이미지가 포함되지 않는다.
-실제 콘티·스케치는 비공개 nampy-assets에 보관한다. 공개 저장소에는 앱 코드와 가상 테스트만 둔다.
+실제 콘티·스케치는 비공개 저장소에 보관한다. 공개 저장소에는 앱 코드와 가상 테스트만 둔다.
 
 # 유튜브 콘티 v3.1.1 · 촬영용 스토리보드
 
@@ -37,7 +37,7 @@ https://rivaljin.github.io/youtube-tools/cook-conti.html
 
 구도는 GPT와 논의해 정하며 근거 없이 추정하지 않습니다. JSON/Markdown 모두
 스케치 정보·팁을 보존합니다. 촬영 체크·순서·현재 장면까지 보관하려면 JSON 백업을
-사용하세요. 공개 예시는 도구 확인용 가상 내용뿐이며 실제 원고는 비공개 nampy-assets에 둡니다.
+사용하세요. 공개 예시는 도구 확인용 가상 내용뿐이며 실제 원고는 비공개 저장소에 둡니다.
 
 ## 저장과 이전
 
@@ -47,6 +47,14 @@ v3.1은 cookContiV31 / cookContiShootV31 키를 사용합니다. 같은 브라�
 덮어쓰지 않게 합니다. 브라우저·홈 화면 앱·기기가 다르면 자동 복사가 안 될 수 있으므로
 기존 JSON 백업을 보관하고 새 도구에서 복원하세요. 새 버전 파일은 새 도구에서 엽니다.
 초기화는 현재 버전만 지우며 과거 버전 자료를 다시 자동 복원하지 않습니다.
+
+같은 `https://rivaljin.github.io` 주소(origin)의 다른 페이지도 이 저장 공간(localStorage)에 접근할 수 있습니다. `/youtube-tools/`처럼 경로가 달라도 저장 공간은 분리되지 않습니다. 버전별 저장 키는 덮어쓰기를 줄이지만 접근을 차단하지는 않습니다. 민감한 원고와 JSON 백업은 비공개로 보관하세요.
+장기적으로 별도 도메인 또는 서브도메인으로 저장 공간을 분리하는 방안을 검토합니다. 이번 변경에서는 이전하지 않습니다.
+
+## 보안 정책과 구버전
+
+같은 출처의 외부 스크립트만 허용하는 CSP를 적용하고 referrer 전송을 끕니다. 기존 인라인 스타일과 동적 화면 스타일을 유지하기 위해 `style-src`의 `'unsafe-inline'`은 유지합니다. 제거하려면 HTML과 JavaScript에서 설정하는 스타일을 함께 검토하고 별도로 검증해야 합니다.
+`rivaljin/blog-tools`의 구버전은 변경하거나 삭제하지 않습니다. 이전 완료를 확인한 후 새 도구 안내 페이지로 바꾸는 방안을 검토하되, 기존 JSON 백업과 이전 방법을 먼저 안내하는 것이 좋습니다.
 
 ## 오프라인과 화면 유지
 
@@ -64,5 +72,13 @@ v3.1은 cookContiV31 / cookContiShootV31 키를 사용합니다. 같은 브라�
 - node tests/path-offline.test.cjs
 - node tests/storyboard.test.cjs
 - node tests/legacy-save.test.cjs
+- node tests/image-backup.test.cjs
+- node tests/security.test.cjs
 
 iOS 실기기 검증은 별도입니다. 실제 배포 확인과 로컬 브라우저 기능 검증을 구분합니다.
+
+### 2026-11-03 보안 보완 검증
+
+Windows의 실제 Chrome을 Playwright로 구동해 기존 5개 테스트와 추가한 security.test.cjs, 총 6개를 모두 통과했습니다. 기존 테스트 파일은 수정하지 않았으며, 저장 키와 JSON version 1 형식을 유지합니다. Linux 고정 실행 경로는 저장소 밖의 실행 어댑터에서 Windows Chrome 경로로 치환했습니다.
+로컬 HTTPS(테스트용 자체 서명 인증서 허용)에서 편집·촬영 보기·GPT 가져오기·PNG 첨부·JSON 백업/복원·클립보드 복사·Markdown 다운로드·오프라인 재접속을 검증했습니다. 추가 보안 테스트는 원본 CSP/referrer, 인라인 스크립트/이벤트 속성 부재, 새 editor.js 캐시와 CSP 위반 0건을 확인합니다.
+이 PC의 HTTP 응답에는 AdGuard가 자체 스크립트와 CSP 변경을 삽입하므로, CSP 최종 검증은 이 간섭이 없는 로컬 HTTPS에서 수행했습니다. 실제 GitHub Pages 배포 후의 HTTPS 응답과 기존 서비스워커 업데이트, iOS 실기기 검증은 별도로 남아 있습니다.
