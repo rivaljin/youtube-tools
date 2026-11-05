@@ -1,5 +1,5 @@
-const CACHE='youtube-tools-conti-v6-csp-editor';
-const FILES=['./','./index.html','./cook-conti.html','./assets/editor.js','./assets/sketch.js','./assets/conti.js','./assets/conti.css'];
+const CACHE='youtube-tools-conti-v7-github-open';
+const FILES=['./','./index.html','./cook-conti.html','./assets/editor.js','./assets/sketch.js','./assets/conti.js','./assets/github.js','./assets/conti.css'];
 const URLS=new Set(FILES.map(p=>new URL(p,self.location).href));
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES.map(file=>new Request(file,{cache:'reload'}))))));
 self.addEventListener('activate',e=>e.waitUntil((async()=>{for(const k of await caches.keys())if(k.startsWith('youtube-tools-conti-')&&k!==CACHE)await caches.delete(k);await self.clients.claim()})()));

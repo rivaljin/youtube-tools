@@ -8,3 +8,6 @@
 .scene-image-tools{margin:12px 0;font-size:13px;}
 .scene-image-tools input{display:block;max-width:100%;margin:10px 0;}
 @media(min-width:800px){.scene-card>.story-frame{grid-column:1;grid-row:2}.scene-card>.scene-copy{grid-column:2;grid-row:2}.scene-card>.scene-image-tools{grid-column:1/-1}}
+
+.gh-list{list-style:none;margin-top:8px}.gh-list li{margin:6px 0}.gh-list button{width:100%;text-align:left;padding:10px 12px}
+.conti-github input[type=password]{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px}
