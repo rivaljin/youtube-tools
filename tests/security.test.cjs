@@ -34,7 +34,7 @@ const fs=require('node:fs');
   const backup=JSON.parse(raw);assert.equal(backup.version,1);assert.equal(backup.sketches.seg1,'data:image/png;base64,'+png);
   await page.locator('#import-text').fill(raw);await page.locator('#import-preview').click();await page.locator('#import-apply').click();
   await page.waitForFunction(()=>navigator.serviceWorker.controller);
-  assert.equal(await page.evaluate(async()=>!!await (await caches.open('youtube-tools-conti-v7-github-open')).match(new URL('./assets/editor.js',location.href))),true);
+  assert.equal(await page.evaluate(async()=>!!await (await caches.open('youtube-tools-conti-v8-fresh-html')).match(new URL('./assets/editor.js',location.href))),true);
   assert.deepEqual(await page.evaluate(()=>window.cspViolations),[]);
   await context.setOffline(true);await page.reload();await page.locator('#shoot-mode').click();
   await page.waitForFunction(()=>document.querySelector('[data-scene="seg1"] img')?.naturalWidth===1);
