@@ -1,4 +1,4 @@
-const CACHE='youtube-tools-conti-v8-fresh-html';
+const CACHE='youtube-tools-conti-v9-gh-confirm';
 const FILES=['./','./index.html','./cook-conti.html','./assets/editor.js','./assets/sketch.js','./assets/conti.js','./assets/github.js','./assets/conti.css'];
 const URLS=new Set(FILES.map(p=>new URL(p,self.location).href));
 // 화면(HTML)은 온라인이면 새로 받고(3초 안에 응답 없으면 저장본), 오프라인이면 저장본. 스크립트·스타일은 저장본 우선.

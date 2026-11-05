@@ -42,7 +42,7 @@
   return raw?res.text():res.json();
  }
  async function load(){
-  status('목록을 불러오는 중…');$('gh-list').replaceChildren();
+  status('목록을 불러오는 중…');$('gh-list').replaceChildren();$('gh-confirm')?.remove();
   try{
    let items;
    try{const index=JSON.parse(await api(`${DIR}/index.json`,true));items=Array.isArray(index.items)?index.items:[]}
@@ -62,12 +62,24 @@
   try{
    const text=await api(`${DIR}/${id}/conti.json`,true);
    if(text.length>16e6)throw Error('콘티가 너무 큽니다.');
-   const importer=document.querySelector('.conti-import:not(.conti-github)');
+   // 기존 가져오기 검사를 그대로 쓰되, 확인·교체는 이 창 안에서 (아래 가져오기 창으로 내려가지 않음)
    const input=$('import-text');input.value=text;input.dispatchEvent(new Event('input',{bubbles:true}));
-   importer.hidden=false;panel.hidden=true;
    $('import-preview').click();
+   const summary=$('import-summary').textContent;
+   if($('import-apply').disabled){status(summary||'콘티 형식을 확인하지 못했습니다.');return}
    status('');
-   importer.scrollIntoView({behavior:'smooth'});
+   const box=document.createElement('div');box.className='gh-confirm';box.id='gh-confirm';
+   const p=document.createElement('p');p.textContent=summary;
+   const ok=document.createElement('button');ok.id='gh-apply';ok.textContent='이 콘티로 교체';
+   const no=document.createElement('button');no.textContent='취소';
+   ok.onclick=()=>{
+    $('import-apply').click(); // 기존 확인 창(백업 권유) → 교체 → 촬영 보기
+    if(!document.getElementById('shooting').hidden){panel.hidden=true;box.remove();window.scrollTo({top:0,behavior:'smooth'})}
+   };
+   no.onclick=()=>{box.remove();input.value='';input.dispatchEvent(new Event('input',{bubbles:true}))};
+   box.append(p,ok,document.createTextNode(' '),no);
+   $('gh-confirm')?.remove();$('gh-list').before(box);
+   box.scrollIntoView({block:'nearest'});
   }catch(e){status(e.message)}
  }
  button.onclick=()=>{panel.hidden=!panel.hidden;render();if(!panel.hidden&&store.get()&&!$('gh-list').children.length)load()};
@@ -78,5 +90,5 @@
   store.set(key,$('gh-remember').checked);render();load();
  };
  $('gh-refresh').onclick=load;
- $('gh-forget').onclick=()=>{store.clear();render();status('키를 지웠습니다.')};
+ $('gh-forget').onclick=()=>{store.clear();$('gh-confirm')?.remove();render();status('키를 지웠습니다.')};
 })();

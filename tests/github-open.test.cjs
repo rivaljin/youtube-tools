@@ -38,10 +38,16 @@ const assert=require('node:assert/strict');
   assert.equal(calls[0].auth,'Bearer '+KEY);assert.match(calls[0].accept,/raw/);
   // 열기 → 기존 가져오기 확인 단계, 바로 교체하지 않음
   await page.locator('#gh-list button').first().click();
-  await page.waitForFunction(()=>/가상 계란찜/.test(document.getElementById('import-summary').textContent));
+  await page.locator('#gh-confirm').waitFor();
+  assert.match(await page.locator('#gh-confirm p').textContent(),/가상 계란찜/);
+  assert.equal(await page.locator('.conti-import:not(.conti-github)').isHidden(),true,'아래 가져오기 창으로 내려가지 않음');
   assert.notEqual(await page.locator('#dishName').inputValue(),'가상 계란찜','확인 전에는 바꾸지 않음');
-  await page.locator('#import-apply').click();
+  await page.locator('#gh-apply').click();
   assert.equal(await page.locator('#dishName').inputValue(),'가상 계란찜');
+  assert.equal(await page.locator('#shooting').isVisible(),true,'교체 후 촬영 보기');
+  assert.equal(await page.locator('.conti-github').isHidden(),true,'저장소 창은 닫힘');
+  assert.equal(await page.locator('#gh-confirm').count(),0);
+  await page.locator('#edit-mode').click();
   // 키 지우기 → 다시 기억하기로 연결 → localStorage
   await page.locator('#github-mode').click();await page.locator('#gh-forget').click();
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('nampyContiGithubKeyV1')),null);
