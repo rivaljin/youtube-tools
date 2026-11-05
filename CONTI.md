@@ -1,3 +1,19 @@
+# v3.3 — 저장소에서 열기 (읽기 전용)
+
+**저장소에서 열기**는 비공개 저장소 `rivaljin/nampy-conti`의 콘티를 파일 내려받기 없이 엽니다.
+`conti/index.json` 목록(없으면 `conti/` 폴더 목록)에서 고르면 기존 가져오기 화면으로 넘어가고,
+**내용 확인 → 현재 콘티 교체**를 눌러야 바뀝니다. 도구는 저장소에 쓰지 않습니다. 수정본은 JSON 백업으로 받아 Claude에게 전달합니다.
+
+키 규칙
+- Fine-grained 키(`github_pat_`)만 받습니다. 모든 저장소를 여는 classic 키(`ghp_`)는 거절합니다.
+- 키를 만들 때 Repository access는 `nampy-conti` 하나, 권한은 Contents **Read-only**만.
+- 기본은 이 탭에만 보관(sessionStorage, 탭을 닫으면 지워짐). "이 기기에 기억"을 고를 때만 localStorage에 저장합니다.
+  같은 `rivaljin.github.io` 주소의 다른 페이지도 localStorage를 읽을 수 있으므로 키 범위를 위처럼 최소로 둡니다.
+- 키는 `https://api.github.com`으로만 보냅니다(CSP connect-src). 언제든 **키 지우기**로 삭제합니다.
+- 기기를 잃어버리거나 의심되면 GitHub 설정에서 키를 바로 삭제(Revoke)하세요.
+
+검증: `node tests/github-open.test.cjs` (GitHub 응답을 가짜로 대신, 실제 키·원고 없음).
+
 # v3.2 — 장면별 스케치 이미지
 
 촬영 보기의 각 장면에서 ‘스케치 이미지 첨부 · 교체’를 열어 JPEG·PNG·WebP 파일을 선택한다. 첨부한 그림을 기본 SVG 대신 전체 비율로 표시한다. 멘트·자막·팁은 별도로 유지한다.
